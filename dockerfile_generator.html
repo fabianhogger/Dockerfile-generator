@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-g">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Dockerfile Generator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #111827; /* Tailwind gray-900 */
+            color: #d1d5db; /* Tailwind gray-300 */
+        }
+        .ai-glow {
+            box-shadow: 0 0 15px 4px rgba(59, 130, 246, 0.4);
+        }
+        /* Custom scrollbar for webkit browsers */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1f2937; /* gray-800 */
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #374151; /* gray-700 */
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #4b5563; /* gray-600 */
+        }
+        /* Basic spinner */
+        .spinner {
+            border: 4px solid rgba(255, 255, 255, 0.2);
+            border-left-color: #3b82f6; /* blue-500 */
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="h-full flex items-center justify-center p-4 md:p-8">
+    <div class="w-full max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-8">
+        
+        <!-- Input Section -->
+        <div class="bg-gray-800 p-6 md:p-8 rounded-2xl shadow-xl">
+            <h1 class="text-3xl font-bold text-white mb-2">AI Dockerfile Generator</h1>
+            <p class="text-gray-400 mb-6">Provide your app's details, and the AI will generate a production-ready Dockerfile.</p>
+            
+            <div class="space-y-6">
+                <!-- GitHub URL Fetcher -->
+                <div>
+                    <label for="github-url" class="block text-sm font-medium text-gray-300 mb-2">
+                        1. GitHub Repository URL (Optional)
+                    </label>
+                    <div class="flex flex-col sm:flex-row gap-2">
+                        <input type="text" id="github-url" class="flex-1 w-full p-4 bg-gray-900 border border-gray-700 rounded-lg text-gray-300 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200" placeholder="https://github.com/user/repository">
+                        <button id="fetch-btn" class="flex items-center justify-center gap-2 bg-gray-600 hover:bg-gray-700 text-white font-semibold py-3 px-4 rounded-lg transition duration-200">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                            </svg>
+                            Fetch Details
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Dependency File -->
+                <div>
+                    <label for="dependency-file" class="block text-sm font-medium text-gray-300 mb-2">
+                        2. Dependency File Content (or fetch from URL)
+                    </label>
+                    <textarea id="dependency-file" rows="12" class="w-full p-4 bg-gray-900 border border-gray-700 rounded-lg text-gray-300 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 resize-none" placeholder="Paste your package.json, requirements.txt, etc. here... or use the 'Fetch' button above."></textarea>
+                </div>
+
+                <!-- Run Command -->
+                <div>
+                    <label for="run-command" class="block text-sm font-medium text-gray-300 mb-2">
+                        3. Run Command
+                    </label>
+                    <input type="text" id="run-command" class="w-full p-4 bg-gray-900 border border-gray-700 rounded-lg text-gray-300 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200" placeholder="e.g., npm start, python app.py, ./main">
+                </div>
+
+                <!-- Exposed Port -->
+                <div>
+                    <label for="exposed-port" class="block text-sm font-medium text-gray-300 mb-2">
+                        4. Port to Expose (Optional)
+                    </label>
+                    <input type="text" id="exposed-port" class="w-full p-4 bg-gray-900 border border-gray-700 rounded-lg text-gray-300 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200" placeholder="e.g., 3000, 8080, 80 (AI will try to guess if left blank)">
+                </div>
+
+                <!-- Generate Button -->
+                <button id="generate-btn" class="w-full flex items-center justify-center gap-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition duration-200 text-lg ai-glow">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9.75 3.104l-7.5 10.5c0 0 .15.15.3.3C4.35 16.65 6.8 20.65 9.75 23.5c2.95-2.85 5.4-6.85 7.2-9.6.15-.15.3-.3.3-.3l-7.5-10.5z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9.75 3.104V23.5" />
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12.75 3.104l7.5 10.5c0 0-.15.15-.3.3-1.8 2.75-4.25 6.75-7.2 9.6-.15-.15-.3-.3-.3-.3l7.5-10.5z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12.75 3.104V23.5" />
+                    </svg>
+                    Generate Dockerfile
+                </button>
+            </div>
+        </div>
+
+        <!-- Output Section -->
+        <div class="bg-gray-800 p-6 md:p-8 rounded-2xl shadow-xl flex flex-col h-full">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-2xl font-semibold text-white">Generated Dockerfile</h2>
+                <button id="copy-btn" title="Copy to Clipboard" class="p-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-gray-300 hover:text-white transition duration-200" disabled>
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
+                </button>
+            </div>
+            <div id="message-box" class="hidden p-4 mb-4 text-sm rounded-lg" role="alert">
+                <!-- Messages will be injected here -->
+            </div>
+            <div class="relative flex-1">
+                <!-- Spinner Overlay -->
+                <div id="loading-overlay" class="absolute inset-0 bg-gray-900 bg-opacity-75 backdrop-blur-sm flex items-center justify-center rounded-lg z-10 hidden">
+                    <div class="flex flex-col items-center">
+                        <div class="spinner"></div>
+                        <span class="mt-4 text-lg text-gray-300 font-medium">AI is analyzing your app...</span>
+                        <span class="mt-1 text-sm text-gray-400">This may take a moment.</span>
+                    </div>
+                </div>
+                <!-- Output Display -->
+                <pre id="output-pre" class="h-full w-full bg-gray-900 rounded-lg overflow-auto p-6"><code id="output-code" class="text-sm text-gray-300 language-dockerfile whitespace-pre-wrap"># Your generated Dockerfile will appear here...</code></pre>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        const dependencyInput = document.getElementById('dependency-file');
+        const runCommandInput = document.getElementById('run-command');
+        const portInput = document.getElementById('exposed-port');
+        const generateBtn = document.getElementById('generate-btn');
+        const copyBtn = document.getElementById('copy-btn');
+        const outputCode = document.getElementById('output-code');
+        const outputPre = document.getElementById('output-pre');
+        const loadingOverlay = document.getElementById('loading-overlay');
+        const messageBox = document.getElementById('message-box');
+        const githubUrlInput = document.getElementById('github-url');
+        const fetchBtn = document.getElementById('fetch-btn');
+
+        generateBtn.addEventListener('click', handleGenerate);
+        copyBtn.addEventListener('click', copyToClipboard);
+        fetchBtn.addEventListener('click', handleFetchFromGithub);
+
+        async function handleFetchFromGithub() {
+            const url = githubUrlInput.value;
+            const match = url.match(/github\.com\/([^\/]+\/[^\/]+)/);
+
+            if (!match || !match[1]) {
+                showMessage('Invalid GitHub URL. Please use the format https://github.com/user/repo', 'error');
+                return;
+            }
+
+            const repoPath = match[1].replace(/\.git$/, ''); // Clean .git suffix
+            const [owner, repo] = repoPath.split('/');
+
+            const filesToTry = [
+                {
+                    name: 'package.json',
+                    guessRunCommand: (content) => {
+                        try {
+                            const pkg = JSON.parse(content);
+                            if (pkg.scripts?.start) return 'npm start';
+                            if (pkg.scripts?.serve) return 'npm run serve';
+                            if (pkg.scripts?.dev) return 'npm run dev';
+                        } catch (e) { console.error('Error parsing package.json:', e); }
+                        return 'npm start'; // Default guess
+                    },
+                    guessPort: (content) => '3000' // Common for node apps
+                },
+                {
+                    name: 'requirements.txt',
+                    guessRunCommand: (content) => 'gunicorn app:app', // Common prod command
+                    guessPort: (content) => '8000' // Common for gunicorn
+                },
+                {
+                    name: 'pyproject.toml',
+                    guessRunCommand: (content) => 'gunicorn app:app', // Simple guess
+                    guessPort: (content) => '8000'
+                },
+                {
+                    name: 'go.mod',
+                    guessRunCommand: (content) => `./${repo}`, // Guess binary name from repo
+                    guessPort: (content) => '8080' // Common for go apps
+                },
+                {
+                    name: 'pom.xml',
+                    guessRunCommand: (content) => 'java -jar target/app.jar', // Common for Spring Boot
+                    guessPort: (content) => '8080'
+                },
+                {
+                    name: 'Gemfile',
+                    guessRunCommand: (content) => 'bundle exec rails server -b 0.0.0.0',
+                    guessPort: (content) => '3000'
+                }
+            ];
+
+            const branchesToTry = ['main', 'master'];
+            let foundFile = false;
+
+            // Set loading state for fetch button
+            const originalFetchBtnHtml = fetchBtn.innerHTML;
+            fetchBtn.innerHTML = `<div classclass="spinner" style="width: 20px; height: 20px; border-width: 2px;"></div>`;
+            fetchBtn.disabled = true;
+            showMessage(null); // Clear messages
+
+            for (const fileInfo of filesToTry) {
+                for (const branch of branchesToTry) {
+                    const rawUrl = `https://raw.githubusercontent.com/${repoPath}/${branch}/${fileInfo.name}`;
+                    try {
+                        const response = await fetch(rawUrl);
+                        if (response.ok) {
+                            const content = await response.text();
+                            
+                            dependencyInput.value = content;
+                            
+                            // Guess and fill run command, but don't overwrite if user already typed one
+                            if (!runCommandInput.value) {
+                                runCommandInput.value = fileInfo.guessRunCommand(content);
+                            }
+                            
+                            // Guess and fill port, but don't overwrite
+                            if (!portInput.value && fileInfo.guessPort) {
+                                portInput.value = fileInfo.guessPort(content);
+                            }
+
+                            showMessage(`Successfully fetched ${fileInfo.name} from ${branch} branch!`, 'success');
+                            foundFile = true;
+                            break; // Stop checking branches for this file
+                        }
+                    } catch (error) {
+                        console.warn(`Could not fetch ${rawUrl}:`, error);
+                    }
+                }
+                if (foundFile) {
+                    break; // Stop checking other files
+                }
+            }
+
+            // Reset fetch button
+            fetchBtn.innerHTML = originalFetchBtnHtml;
+            fetchBtn.disabled = false;
+
+            if (!foundFile) {
+                showMessage('Could not find a common dependency file (e.g., package.json, requirements.txt) in the main or master branch.', 'error');
+            }
+        }
+
+        async function handleGenerate() {
+            const depFileContent = dependencyInput.value;
+            const runCommand = runCommandInput.value;
+            const exposedPort = portInput.value;
+            const githubUrl = githubUrlInput.value;
+
+            // Scenario 1: We have dependency file content. Use the original logic.
+            if (depFileContent) {
+                if (!runCommand) {
+                    showMessage('Please provide a run command.', 'error');
+                    return;
+                }
+                await generateFromManualInput(depFileContent, runCommand, exposedPort);
+            } 
+            // Scenario 2: No dependency file, but we have a GitHub URL. Use smart analysis.
+            else if (githubUrl) {
+                await generateFromGithubUrl(githubUrl, runCommand, exposedPort);
+            }
+            // Scenario 3: Not enough information.
+            else {
+                showMessage('Please provide either a GitHub URL for analysis or manually paste dependency file content.', 'error');
+            }
+        }
+
+        async function generateFromManualInput(depFileContent, runCommand, exposedPort) {
+            // This is the original logic from handleGenerate
+            setLoadingState(true);
+
+            try {
+                // Construct the prompt for the AI
+                const userQuery = `
+Generate a production-ready, multi-stage Dockerfile based on the following information.
+
+1.  **Dependency File Content (e.g., package.json, requirements.txt, go.mod):**
+    \`\`\`
+    ${depFileContent}
+    \`\`\`
+
+2.  **Run Command:**
+    \`\`\`
+    ${runCommand}
+    \`\`\`
+
+3.  **Port to Expose (if provided):**
+    \`\`\`
+    ${exposedPort || 'Not specified, please infer if possible.'}
+    \`\`\`
+`;
+
+                const systemInstruction = `You are an expert DevOps engineer specializing in Docker. Your task is to generate a complete, production-ready, multi-stage Dockerfile based on the user's provided file contents and run commands.
+- You MUST infer the language, framework, and any necessary build steps from the dependency file.
+- Prioritize slim base images (e.g., 'alpine' or 'slim-bullseye').
+- Always use multi-stage builds.
+- Implement security best practices, such as creating a non-root user (e.g., 'appuser' or 'node') and copying files with correct permissions.
+- If it's a Node.js app, check 'package.json' for a 'build' script. If one exists, assume it needs to be run.
+- If it's a Python app, use an image like 'python:3.11-slim' and install dependencies from 'requirements.txt' (or infer from 'pyproject.toml' etc.).
+- If it's a Go app, use 'golang:1.21-alpine' to build and a 'scratch' or 'alpine' image for the final stage.
+- Add comments in the Dockerfile to explain key steps.
+- Respond ONLY with the Dockerfile content. Do not add any other text, explanation, or greeting. Your entire response should be the Dockerfile code.`;
+
+                const generatedDockerfile = await callGeminiApi(userQuery, systemInstruction);
+                const dockerfileContent = extractDockerfile(generatedDockerfile);
+                
+                outputCode.textContent = dockerfileContent;
+                copyBtn.disabled = false;
+                showMessage('Dockerfile generated successfully!', 'success');
+
+            } catch (error) {
+                console.error('Error generating Dockerfile:', error);
+                outputCode.textContent = `# An error occurred.\n# ${error.message}\n# Please check the console for details.`;
+                showMessage(`Error: ${error.message}. Check the console for more details.`, 'error');
+            } finally {
+                setLoadingState(false);
+            }
+        }
+
+        async function generateFromGithubUrl(url, runCommand, exposedPort) {
+            setLoadingState(true);
+            
+            const match = url.match(/github\.com\/([^\/]+\/[^\/]+)/);
+            if (!match || !match[1]) {
+                showMessage('Invalid GitHub URL. Please use the format https://github.com/user/repo', 'error');
+                setLoadingState(false);
+                return;
+            }
+            const repoPath = match[1].replace(/\.git$/, '');
+            const repoApiUrl = `https://api.github.com/repos/${repoPath}/contents/`;
+
+            try {
+                // 1. Fetch the file list from the repo root
+                const response = await fetch(repoApiUrl);
+                if (!response.ok) {
+                    throw new Error(`Failed to fetch repo contents from GitHub API. Status: ${response.status}. Make sure the repository is public.`);
+                }
+                const repoContents = await response.json();
+                
+                // We are only interested in files and directories, not submodules etc.
+                const fileList = repoContents
+                    .filter(item => item.type === 'file' || item.type === 'dir')
+                    .map(item => `${item.name}${item.type === 'dir' ? '/' : ''}`);
+                
+                if (fileList.length === 0) {
+                    throw new Error('Repository root seems to be empty or inaccessible.');
+                }
+
+                // 2. Construct the new "smart" prompt
+                const userQuery = `
+Generate a production-ready, multi-stage Dockerfile by analyzing the following GitHub repository structure.
+
+1.  **GitHub Repository URL:**
+    \`\`\`
+    ${url}
+    \`\`\`
+
+2.  **File/Directory List (from repo root):**
+    \`\`\`
+    ${fileList.join('\n')}
+    \`\`\`
+
+3.  **User-provided Run Command (if any):**
+    \`\`\`
+    ${runCommand || 'Not specified. Please infer the correct run command.'}
+    \`\`\`
+
+4.  **User-provided Port (if any):**
+    \`\`\`
+    ${exposedPort || 'Not specified. Please infer if possible.'}
+    \`\`\`
+`;
+
+                const systemInstruction = `You are an expert DevOps buildpack engineer. Your task is to analyze a GitHub repository's file structure to deduce the project type, language, and required build steps, then generate a complete, production-ready, multi-stage Dockerfile.
+- **Analyze the file list** to determine the technology stack (e.g., 'package.json' means Node.js; 'main.py' and 'requirements.txt' means Python; 'go.mod' means Go; 'src/' and 'pom.xml' means Java).
+- If you see files like 'package.json', 'requirements.txt', 'go.mod', etc., you MUST assume the Dockerfile needs to copy and process that file (e.g., 'npm install', 'pip install -r requirements.txt', 'go mod download').
+- If you see a 'src' folder, assume source code is in there.
+- **Infer build steps:** If you see 'package.json' and a 'next.config.js' or 'vite.config.js', you MUST infer a build step like 'npm run build'.
+- **Infer run command:** If the user does not provide a run command, infer one (e.g., 'npm start', 'python app.py', './main').
+- **Best Practices:** Prioritize slim base images (e.g., 'alpine', 'slim-bullseye'), use multi-stage builds, and create a non-root user.
+- **Comments:** Add comments to the Dockerfile to explain your reasoning (e.g., "# Found package.json, assuming Node.js project").
+- **Respond ONLY with the Dockerfile content.** Do not add any other text.`;
+
+                // 3. Call API and display results
+                const generatedDockerfile = await callGeminiApi(userQuery, systemInstruction);
+                const dockerfileContent = extractDockerfile(generatedDockerfile);
+                
+                outputCode.textContent = dockerfileContent;
+                copyBtn.disabled = false;
+                showMessage('Dockerfile generated successfully from repo analysis!', 'success');
+
+            } catch (error) {
+                console.error('Error generating Dockerfile from URL:', error);
+                outputCode.textContent = `# An error occurred during repository analysis.\n# ${error.message}\n# Please check the console for details.`;
+                showMessage(`Error: ${error.message}. Check the console for more details.`, 'error');
+            } finally {
+                setLoadingState(false);
+            }
+        }
+
+        // Helper function to manage loading state
+        function setLoadingState(isLoading) {
+            if (isLoading) {
+                loadingOverlay.classList.remove('hidden');
+                generateBtn.disabled = true;
+                generateBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                copyBtn.disabled = true;
+                outputCode.textContent = '# AI is analyzing your app...';
+                showMessage(null); // Clear previous messages
+            } else {
+                loadingOverlay.classList.add('hidden');
+                generateBtn.disabled = false;
+                generateBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+            }
+        }
+
+        async function callGeminiApi(userQuery, systemPrompt, retries = 3, delay = 1000) {
+            const apiKey = ""; // API key is handled by the environment
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+
+            const payload = {
+                contents: [{
+                    parts: [{ text: userQuery }]
+                }],
+                systemInstruction: {
+                    parts: [{ text: systemPrompt }]
+                },
+            };
+
+            for (let i = 0; i < retries; i++) {
+                try {
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok) {
+                        const errorBody = await response.text();
+                        throw new Error(`API request failed with status ${response.status}: ${errorBody}`);
+                    }
+
+                    const result = await response.json();
+                    
+                    if (result.candidates && result.candidates.length > 0 &&
+                        result.candidates[0].content && result.candidates[0].content.parts &&
+                        result.candidates[0].content.parts.length > 0) {
+                        return result.candidates[0].content.parts[0].text;
+                    } else if (result.promptFeedback) {
+                        // Handle content safety blocks
+                        const feedback = result.promptFeedback;
+                        console.error('Prompt was blocked:', feedback);
+                        let blockReason = feedback.blockReason || 'Unknown';
+                        let safetyRatings = (feedback.safetyRatings || []).map(r => `${r.category}: ${r.probability}`).join(', ');
+                        throw new Error(`Request was blocked by the API. Reason: ${blockReason}. Ratings: [${safetyRatings}]`);
+                    } else {
+                        throw new Error('Invalid API response structure. No candidates found.');
+                    }
+                } catch (error) {
+                    console.warn(`API call attempt ${i + 1} failed. Retrying in ${delay}ms...`, error.message);
+                    if (i === retries - 1) {
+                        // Last retry failed
+                        throw error;
+                    }
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                    delay *= 2; // Exponential backoff
+                }
+            }
+        }
+        
+        function extractDockerfile(rawText) {
+            // Try to find a Dockerfile markdown block
+            const match = rawText.match(/^(```dockerfile\n)([\s\S]*?)(\n```)$/im);
+            if (match && match[2]) {
+                return match[2].trim();
+            }
+            // Fallback: if the model *only* returned the code, it might not have the markdown.
+            // Let's also check if the text *starts* with 'FROM' (a common Dockerfile command)
+            // and doesn't contain the "I am an AI" type of language.
+            const trimmedText = rawText.trim();
+            if (trimmedText.toUpperCase().startsWith('FROM') && !trimmedText.includes('Here is your Dockerfile')) {
+                return trimmedText;
+            }
+            // If it's still not found, return the raw text for debugging
+            return rawText;
+        }
+
+        function copyToClipboard() {
+            const textToCopy = outputCode.textContent;
+            
+            // Use legacy method for iframe compatibility
+            const tempTextArea = document.createElement('textarea');
+            tempTextArea.value = textToCopy;
+            document.body.appendChild(tempTextArea);
+            tempTextArea.select();
+            
+            try {
+                document.execCommand('copy');
+                showMessage('Copied to clipboard!', 'success');
+            } catch (err) {
+                console.error('Failed to copy text: ', err);
+                showMessage('Failed to copy to clipboard.', 'error');
+            }
+            
+            document.body.removeChild(tempTextArea);
+        }
+
+        function showMessage(message, type = 'success') {
+            if (!message) {
+                messageBox.classList.add('hidden');
+                return;
+            }
+            
+            messageBox.classList.remove('hidden');
+            messageBox.textContent = message;
+            
+            if (type === 'success') {
+                messageBox.className = 'p-4 mb-4 text-sm text-green-300 bg-green-900 rounded-lg';
+            } else if (type === 'error') {
+                messageBox.className = 'p-4 mb-4 text-sm text-red-300 bg-red-900 rounded-lg';
+            }
+        }
+
+    </script>
+</body>
+</html>
+
+

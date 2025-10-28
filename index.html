@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en" class="h-full">
 <head>
-    <meta charset="UTF-g">
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI Dockerfile Generator</title>
     <script src="https://cdn.tailwindcss.com"></script>
@@ -9,39 +9,47 @@
     <style>
         body {
             font-family: 'Inter', sans-serif;
-            background-color: #111827; /* Tailwind gray-900 */
-            color: #d1d5db; /* Tailwind gray-300 */
+            background-color: #111827; /* gray-900 */
         }
         .ai-glow {
-            box-shadow: 0 0 15px 4px rgba(59, 130, 246, 0.4);
+            box-shadow: 0 0 15px 0 rgba(59, 130, 246, 0.5);
         }
-        /* Custom scrollbar for webkit browsers */
-        ::-webkit-scrollbar {
-            width: 8px;
-            height: 8px;
-        }
-        ::-webkit-scrollbar-track {
-            background: #1f2937; /* gray-800 */
-            border-radius: 10px;
-        }
-        ::-webkit-scrollbar-thumb {
-            background: #374151; /* gray-700 */
-            border-radius: 10px;
-        }
-        ::-webkit-scrollbar-thumb:hover {
-            background: #4b5563; /* gray-600 */
-        }
-        /* Basic spinner */
         .spinner {
-            border: 4px solid rgba(255, 255, 255, 0.2);
-            border-left-color: #3b82f6; /* blue-500 */
+            border: 4px solid rgba(255, 255, 255, 0.3);
             border-radius: 50%;
-            width: 24px;
-            height: 24px;
+            border-top-color: #3b82f6; /* blue-500 */
+            width: 40px;
+            height: 40px;
             animation: spin 1s linear infinite;
         }
         @keyframes spin {
             to { transform: rotate(360deg); }
+        }
+        pre {
+            background-color: #1f2937; /* gray-800 */
+            border-radius: 0.5rem;
+            padding: 1rem;
+            overflow-x: auto;
+        }
+        code {
+            color: #d1d5db; /* gray-300 */
+        }
+        .message-success {
+            background-color: #059669; /* green-700 */
+            color: #d1fae5; /* green-100 */
+            border: 1px solid #065f46; /* green-900 */
+        }
+        .message-error {
+            background-color: #dc2626; /* red-600 */
+            color: #fee2e2; /* red-100 */
+            border: 1px solid #991b1b; /* red-900 */
+        }
+        .api-key-info a {
+            color: #60a5fa; /* blue-400 */
+            text-decoration: underline;
+        }
+        .api-key-info a:hover {
+            color: #93c5fd; /* blue-300 */
         }
     </style>
 </head>
@@ -54,6 +62,27 @@
             <p class="text-gray-400 mb-6">Provide your app's details, and the AI will generate a production-ready Dockerfile.</p>
             
             <div class="space-y-6">
+                <!-- API Key -->
+                <div>
+                    <label for="api-key" class="block text-sm font-medium text-gray-300 mb-2">
+                        Google AI API Key
+                    </label>
+                    <input type="password" id="api-key" class="w-full p-4 bg-gray-900 border border-gray-700 rounded-lg text-gray-300 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200" placeholder="Paste your API key here">
+                    
+                    <!-- START: Remember Key Checkbox -->
+                    <div class="flex items-center justify-between mt-2">
+                        <div class="flex items-center gap-2">
+                            <input id="remember-key" type="checkbox" class="h-4 w-4 bg-gray-900 border-gray-700 rounded text-blue-600 focus:ring-blue-500">
+                            <label for="remember-key" class="text-sm text-gray-400">Remember Key</label>
+                        </div>
+                        <p class="text-xs text-gray-500 api-key-info">
+                            Get key: <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer">AI Studio</a>
+                        </p>
+                    </div>
+                    <!-- END: Remember Key Checkbox -->
+
+                </div>
+
                 <!-- GitHub URL Fetcher -->
                 <div>
                     <label for="github-url" class="block text-sm font-medium text-gray-300 mb-2">
@@ -75,7 +104,7 @@
                     <label for="dependency-file" class="block text-sm font-medium text-gray-300 mb-2">
                         2. Dependency File Content (or fetch from URL)
                     </label>
-                    <textarea id="dependency-file" rows="12" class="w-full p-4 bg-gray-900 border border-gray-700 rounded-lg text-gray-300 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 resize-none" placeholder="Paste your package.json, requirements.txt, etc. here... or use the 'Fetch' button above."></textarea>
+                    <textarea id="dependency-file" rows="10" class="w-full p-4 bg-gray-900 border border-gray-700 rounded-lg text-gray-300 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 resize-none" placeholder="Paste your package.json, requirements.txt, etc. here... or use the 'Fetch' button above."></textarea>
                 </div>
 
                 <!-- Run Command -->
@@ -97,10 +126,7 @@
                 <!-- Generate Button -->
                 <button id="generate-btn" class="w-full flex items-center justify-center gap-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition duration-200 text-lg ai-glow">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M9.75 3.104l-7.5 10.5c0 0 .15.15.3.3C4.35 16.65 6.8 20.65 9.75 23.5c2.95-2.85 5.4-6.85 7.2-9.6.15-.15.3-.3.3-.3l-7.5-10.5z" />
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M9.75 3.104V23.5" />
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M12.75 3.104l7.5 10.5c0 0-.15.15-.3.3-1.8 2.75-4.25 6.75-7.2 9.6-.15-.15-.3-.3-.3-.3l7.5-10.5z" />
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M12.75 3.104V23.5" />
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.24a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
                     </svg>
                     Generate Dockerfile
                 </button>
@@ -108,48 +134,75 @@
         </div>
 
         <!-- Output Section -->
-        <div class="bg-gray-800 p-6 md:p-8 rounded-2xl shadow-xl flex flex-col h-full">
-            <div class="flex justify-between items-center mb-4">
-                <h2 class="text-2xl font-semibold text-white">Generated Dockerfile</h2>
-                <button id="copy-btn" title="Copy to Clipboard" class="p-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-gray-300 hover:text-white transition duration-200" disabled>
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                    </svg>
-                </button>
-            </div>
-            <div id="message-box" class="hidden p-4 mb-4 text-sm rounded-lg" role="alert">
-                <!-- Messages will be injected here -->
-            </div>
-            <div class="relative flex-1">
-                <!-- Spinner Overlay -->
-                <div id="loading-overlay" class="absolute inset-0 bg-gray-900 bg-opacity-75 backdrop-blur-sm flex items-center justify-center rounded-lg z-10 hidden">
-                    <div class="flex flex-col items-center">
-                        <div class="spinner"></div>
-                        <span class="mt-4 text-lg text-gray-300 font-medium">AI is analyzing your app...</span>
-                        <span class="mt-1 text-sm text-gray-400">This may take a moment.</span>
-                    </div>
+        <div class="bg-gray-900 rounded-2xl shadow-xl flex flex-col h-full" style="min-height: 70vh;">
+            <!-- Header -->
+            <div class="flex justify-between items-center p-4 border-b border-gray-700">
+                <h2 class="text-lg font-semibold text-white">Generated Dockerfile</h2>
+                <!-- Button Group -->
+                <div class="flex gap-2">
+                    <button id="copy-btn" disabled class="flex items-center gap-2 bg-gray-700 hover:bg-gray-600 text-white font-medium py-2 px-4 rounded-lg transition duration-200 text-sm disabled:opacity-50 disabled:cursor-not-allowed">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                        </svg>
+                        Copy
+                    </button>
+                    <!-- New Download Button -->
+                    <button id="download-btn" disabled class="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition duration-200 text-sm disabled:opacity-50 disabled:cursor-not-allowed">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                        </svg>
+                        Download
+                    </button>
                 </div>
-                <!-- Output Display -->
-                <pre id="output-pre" class="h-full w-full bg-gray-900 rounded-lg overflow-auto p-6"><code id="output-code" class="text-sm text-gray-300 language-dockerfile whitespace-pre-wrap"># Your generated Dockerfile will appear here...</code></pre>
             </div>
+            
+            <!-- Code Output -->
+            <div class="relative flex-1 p-4 overflow-hidden" style="min-height: 500px;">
+                <pre class="h-full w-full overflow-auto" style="min-height: 100%;"><code id="output-code" class="language-dockerfile text-sm font-mono whitespace-pre" style="color: #d1d5db;"># Your generated Dockerfile will appear here...</code></pre>
+                
+                <!-- Loading Overlay -->
+                <div id="loading-overlay" class="absolute inset-0 bg-gray-900 bg-opacity-80 flex flex-col items-center justify-center hidden backdrop-blur-sm">
+                    <div class="spinner"></div>
+                    <p class="text-gray-300 mt-4 text-lg font-medium">AI is thinking...</p>
+                    <p class="text-gray-400 text-sm">Generating your production Dockerfile</p>
+                </div>
+            </div>
+
+            <!-- Message Box -->
+            <div id="message-box" class="p-4 m-4 rounded-lg hidden"></div>
         </div>
     </div>
 
     <script type="module">
+        // Get all DOM elements
         const dependencyInput = document.getElementById('dependency-file');
         const runCommandInput = document.getElementById('run-command');
         const portInput = document.getElementById('exposed-port');
         const generateBtn = document.getElementById('generate-btn');
         const copyBtn = document.getElementById('copy-btn');
+        const downloadBtn = document.getElementById('download-btn'); // <-- New
         const outputCode = document.getElementById('output-code');
-        const outputPre = document.getElementById('output-pre');
         const loadingOverlay = document.getElementById('loading-overlay');
         const messageBox = document.getElementById('message-box');
         const githubUrlInput = document.getElementById('github-url');
         const fetchBtn = document.getElementById('fetch-btn');
+        const apiKeyInput = document.getElementById('api-key');
+        const rememberKeyCheckbox = document.getElementById('remember-key');
 
+        // --- START: Load key from localStorage on page load ---
+        document.addEventListener('DOMContentLoaded', () => {
+            const savedKey = localStorage.getItem('googleApiKey');
+            if (savedKey) {
+                apiKeyInput.value = savedKey;
+                rememberKeyCheckbox.checked = true;
+            }
+        });
+        // --- END: Load key ---
+
+        // Add event listeners
         generateBtn.addEventListener('click', handleGenerate);
         copyBtn.addEventListener('click', copyToClipboard);
+        downloadBtn.addEventListener('click', downloadDockerfile); // <-- New
         fetchBtn.addEventListener('click', handleFetchFromGithub);
 
         async function handleFetchFromGithub() {
@@ -210,7 +263,7 @@
 
             // Set loading state for fetch button
             const originalFetchBtnHtml = fetchBtn.innerHTML;
-            fetchBtn.innerHTML = `<div classclass="spinner" style="width: 20px; height: 20px; border-width: 2px;"></div>`;
+            fetchBtn.innerHTML = `<div class="spinner" style="width: 20px; height: 20px; border-width: 2px;"></div>`;
             fetchBtn.disabled = true;
             showMessage(null); // Clear messages
 
@@ -224,26 +277,24 @@
                             
                             dependencyInput.value = content;
                             
-                            // Guess and fill run command, but don't overwrite if user already typed one
                             if (!runCommandInput.value) {
                                 runCommandInput.value = fileInfo.guessRunCommand(content);
                             }
                             
-                            // Guess and fill port, but don't overwrite
                             if (!portInput.value && fileInfo.guessPort) {
                                 portInput.value = fileInfo.guessPort(content);
                             }
 
                             showMessage(`Successfully fetched ${fileInfo.name} from ${branch} branch!`, 'success');
                             foundFile = true;
-                            break; // Stop checking branches for this file
+                            break; 
                         }
                     } catch (error) {
                         console.warn(`Could not fetch ${rawUrl}:`, error);
                     }
                 }
                 if (foundFile) {
-                    break; // Stop checking other files
+                    break; 
                 }
             }
 
@@ -257,12 +308,25 @@
         }
 
         async function handleGenerate() {
+            const apiKey = apiKeyInput.value;
+            if (!apiKey) {
+                showMessage('Please provide your Google AI API Key to generate the Dockerfile.', 'error');
+                return;
+            }
+
+            // --- START: Save or remove key from localStorage ---
+            if (rememberKeyCheckbox.checked) {
+                localStorage.setItem('googleApiKey', apiKey);
+            } else {
+                localStorage.removeItem('googleApiKey');
+            }
+            // --- END: Save key ---
+
             const depFileContent = dependencyInput.value;
             const runCommand = runCommandInput.value;
             const exposedPort = portInput.value;
             const githubUrl = githubUrlInput.value;
 
-            // Scenario 1: We have dependency file content. Use the original logic.
             if (depFileContent) {
                 if (!runCommand) {
                     showMessage('Please provide a run command.', 'error');
@@ -270,22 +334,18 @@
                 }
                 await generateFromManualInput(depFileContent, runCommand, exposedPort);
             } 
-            // Scenario 2: No dependency file, but we have a GitHub URL. Use smart analysis.
             else if (githubUrl) {
                 await generateFromGithubUrl(githubUrl, runCommand, exposedPort);
             }
-            // Scenario 3: Not enough information.
             else {
                 showMessage('Please provide either a GitHub URL for analysis or manually paste dependency file content.', 'error');
             }
         }
 
         async function generateFromManualInput(depFileContent, runCommand, exposedPort) {
-            // This is the original logic from handleGenerate
             setLoadingState(true);
 
             try {
-                // Construct the prompt for the AI
                 const userQuery = `
 Generate a production-ready, multi-stage Dockerfile based on the following information.
 
@@ -304,7 +364,6 @@ Generate a production-ready, multi-stage Dockerfile based on the following infor
     ${exposedPort || 'Not specified, please infer if possible.'}
     \`\`\`
 `;
-
                 const systemInstruction = `You are an expert DevOps engineer specializing in Docker. Your task is to generate a complete, production-ready, multi-stage Dockerfile based on the user's provided file contents and run commands.
 - You MUST infer the language, framework, and any necessary build steps from the dependency file.
 - Prioritize slim base images (e.g., 'alpine' or 'slim-bullseye').
@@ -321,6 +380,7 @@ Generate a production-ready, multi-stage Dockerfile based on the following infor
                 
                 outputCode.textContent = dockerfileContent;
                 copyBtn.disabled = false;
+                downloadBtn.disabled = false; // <-- New
                 showMessage('Dockerfile generated successfully!', 'success');
 
             } catch (error) {
@@ -345,14 +405,12 @@ Generate a production-ready, multi-stage Dockerfile based on the following infor
             const repoApiUrl = `https://api.github.com/repos/${repoPath}/contents/`;
 
             try {
-                // 1. Fetch the file list from the repo root
                 const response = await fetch(repoApiUrl);
                 if (!response.ok) {
                     throw new Error(`Failed to fetch repo contents from GitHub API. Status: ${response.status}. Make sure the repository is public.`);
                 }
                 const repoContents = await response.json();
                 
-                // We are only interested in files and directories, not submodules etc.
                 const fileList = repoContents
                     .filter(item => item.type === 'file' || item.type === 'dir')
                     .map(item => `${item.name}${item.type === 'dir' ? '/' : ''}`);
@@ -360,8 +418,7 @@ Generate a production-ready, multi-stage Dockerfile based on the following infor
                 if (fileList.length === 0) {
                     throw new Error('Repository root seems to be empty or inaccessible.');
                 }
-
-                // 2. Construct the new "smart" prompt
+                
                 const userQuery = `
 Generate a production-ready, multi-stage Dockerfile by analyzing the following GitHub repository structure.
 
@@ -385,7 +442,6 @@ Generate a production-ready, multi-stage Dockerfile by analyzing the following G
     ${exposedPort || 'Not specified. Please infer if possible.'}
     \`\`\`
 `;
-
                 const systemInstruction = `You are an expert DevOps buildpack engineer. Your task is to analyze a GitHub repository's file structure to deduce the project type, language, and required build steps, then generate a complete, production-ready, multi-stage Dockerfile.
 - **Analyze the file list** to determine the technology stack (e.g., 'package.json' means Node.js; 'main.py' and 'requirements.txt' means Python; 'go.mod' means Go; 'src/' and 'pom.xml' means Java).
 - If you see files like 'package.json', 'requirements.txt', 'go.mod', etc., you MUST assume the Dockerfile needs to copy and process that file (e.g., 'npm install', 'pip install -r requirements.txt', 'go mod download').
@@ -396,12 +452,12 @@ Generate a production-ready, multi-stage Dockerfile by analyzing the following G
 - **Comments:** Add comments to the Dockerfile to explain your reasoning (e.g., "# Found package.json, assuming Node.js project").
 - **Respond ONLY with the Dockerfile content.** Do not add any other text.`;
 
-                // 3. Call API and display results
                 const generatedDockerfile = await callGeminiApi(userQuery, systemInstruction);
                 const dockerfileContent = extractDockerfile(generatedDockerfile);
                 
                 outputCode.textContent = dockerfileContent;
                 copyBtn.disabled = false;
+                downloadBtn.disabled = false; // <-- New
                 showMessage('Dockerfile generated successfully from repo analysis!', 'success');
 
             } catch (error) {
@@ -413,15 +469,15 @@ Generate a production-ready, multi-stage Dockerfile by analyzing the following G
             }
         }
 
-        // Helper function to manage loading state
         function setLoadingState(isLoading) {
             if (isLoading) {
                 loadingOverlay.classList.remove('hidden');
                 generateBtn.disabled = true;
                 generateBtn.classList.add('opacity-50', 'cursor-not-allowed');
                 copyBtn.disabled = true;
+                downloadBtn.disabled = true; // <-- New
                 outputCode.textContent = '# AI is analyzing your app...';
-                showMessage(null); // Clear previous messages
+                showMessage(null);
             } else {
                 loadingOverlay.classList.add('hidden');
                 generateBtn.disabled = false;
@@ -430,13 +486,15 @@ Generate a production-ready, multi-stage Dockerfile by analyzing the following G
         }
 
         async function callGeminiApi(userQuery, systemPrompt, retries = 3, delay = 1000) {
-            const apiKey = ""; // API key is handled by the environment
+            const apiKey = apiKeyInput.value;
+            if (!apiKey) {
+                throw new Error('API Key is missing. Please enter your Google AI API Key.');
+            }
+
             const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
 
             const payload = {
-                contents: [{
-                    parts: [{ text: userQuery }]
-                }],
+                contents: [{ parts: [{ text: userQuery }] }],
                 systemInstruction: {
                     parts: [{ text: systemPrompt }]
                 },
@@ -447,12 +505,15 @@ Generate a production-ready, multi-stage Dockerfile by analyzing the following G
                     const response = await fetch(apiUrl, {
                         method: 'POST',
                         headers: {
-                            'Content-Type': 'application/json'
+                            'Content-Type': 'application/json',
                         },
                         body: JSON.stringify(payload)
                     });
 
                     if (!response.ok) {
+                        if (response.status === 403) {
+                            throw new Error(`API request failed with status 403 (Forbidden). Please check that your API key is correct and has the Gemini API enabled.`);
+                        }
                         const errorBody = await response.text();
                         throw new Error(`API request failed with status ${response.status}: ${errorBody}`);
                     }
@@ -464,29 +525,25 @@ Generate a production-ready, multi-stage Dockerfile by analyzing the following G
                         result.candidates[0].content.parts.length > 0) {
                         return result.candidates[0].content.parts[0].text;
                     } else if (result.promptFeedback) {
-                        // Handle content safety blocks
                         const feedback = result.promptFeedback;
-                        console.error('Prompt was blocked:', feedback);
-                        let blockReason = feedback.blockReason || 'Unknown';
-                        let safetyRatings = (feedback.safetyRatings || []).map(r => `${r.category}: ${r.probability}`).join(', ');
-                        throw new Error(`Request was blocked by the API. Reason: ${blockReason}. Ratings: [${safetyRatings}]`);
+                        console.error('API call blocked:', feedback);
+                        let blockReason = 'Request was blocked by API safety settings.';
+                        if (feedback.blockReason) {
+                            blockReason = `Request blocked due to: ${feedback.blockReason}`;
+                        }
+                        throw new Error(blockReason);
                     } else {
                         throw new Error('Invalid API response structure. No candidates found.');
                     }
                 } catch (error) {
-                    console.warn(`API call attempt ${i + 1} failed. Retrying in ${delay}ms...`, error.message);
-                    if (i === retries - 1) {
-                        // Last retry failed
-                        throw error;
-                    }
-                    await new Promise(resolve => setTimeout(resolve, delay));
-                    delay *= 2; // Exponential backoff
+                    console.error(`Attempt ${i + 1} failed:`, error.message);
+                    if (i === retries - 1) throw error; 
+                    await new Promise(resolve => setTimeout(resolve, delay * (i + 1))); 
                 }
             }
         }
         
         function extractDockerfile(rawText) {
-            // Try to find a Dockerfile markdown block
             const match = rawText.match(/^(```dockerfile\n)([\s\S]*?)(\n```)$/im);
             if (match && match[2]) {
                 return match[2].trim();

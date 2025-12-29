@@ -220,6 +220,7 @@
             const filesToTry = [
                 {
                     name: 'package.json',
+                    language: 'Node.js',
                     guessRunCommand: (content) => {
                         try {
                             const pkg = JSON.parse(content);
@@ -229,37 +230,152 @@
                         } catch (e) { console.error('Error parsing package.json:', e); }
                         return 'npm start'; // Default guess
                     },
-                    guessPort: (content) => '3000' // Common for node apps
+                    guessPort: (content) => {
+                        try {
+                            const pkg = JSON.parse(content);
+                            // Check for Next.js
+                            if (pkg.dependencies?.next || pkg.devDependencies?.next) return '3000';
+                            // Check for React/Vite
+                            if (pkg.dependencies?.vite || pkg.devDependencies?.vite) return '5173';
+                            // Check for Express
+                            if (pkg.dependencies?.express) return '3000';
+                        } catch (e) { console.error('Error parsing package.json:', e); }
+                        return '3000';
+                    },
+                    parseVersion: (content) => {
+                        try {
+                            const pkg = JSON.parse(content);
+                            return pkg.engines?.node || null;
+                        } catch (e) { return null; }
+                    }
                 },
                 {
                     name: 'requirements.txt',
-                    guessRunCommand: (content) => 'gunicorn app:app', // Common prod command
-                    guessPort: (content) => '8000' // Common for gunicorn
+                    language: 'Python',
+                    guessRunCommand: (content) => {
+                        if (content.includes('flask')) return 'flask run --host=0.0.0.0';
+                        if (content.includes('django')) return 'python manage.py runserver 0.0.0.0:8000';
+                        if (content.includes('fastapi')) return 'uvicorn main:app --host 0.0.0.0 --port 8000';
+                        return 'gunicorn app:app --bind 0.0.0.0:8000';
+                    },
+                    guessPort: (content) => {
+                        if (content.includes('flask')) return '5000';
+                        if (content.includes('django')) return '8000';
+                        if (content.includes('fastapi')) return '8000';
+                        return '8000';
+                    }
                 },
                 {
                     name: 'pyproject.toml',
-                    guessRunCommand: (content) => 'gunicorn app:app', // Simple guess
-                    guessPort: (content) => '8000'
+                    language: 'Python',
+                    guessRunCommand: (content) => {
+                        if (content.includes('fastapi')) return 'uvicorn main:app --host 0.0.0.0 --port 8000';
+                        if (content.includes('flask')) return 'flask run --host=0.0.0.0';
+                        if (content.includes('django')) return 'python manage.py runserver 0.0.0.0:8000';
+                        return 'gunicorn app:app --bind 0.0.0.0:8000';
+                    },
+                    guessPort: (content) => '8000',
+                    parseVersion: (content) => {
+                        try {
+                            const match = content.match(/python\s*=\s*["']([^"']+)["']/);
+                            return match ? match[1] : null;
+                        } catch (e) { return null; }
+                    }
                 },
                 {
                     name: 'go.mod',
-                    guessRunCommand: (content) => `./${repo}`, // Guess binary name from repo
-                    guessPort: (content) => '8080' // Common for go apps
+                    language: 'Go',
+                    guessRunCommand: (content) => `./${repo}`,
+                    guessPort: (content) => '8080',
+                    parseVersion: (content) => {
+                        try {
+                            const match = content.match(/go\s+([\d.]+)/);
+                            return match ? match[1] : null;
+                        } catch (e) { return null; }
+                    }
                 },
                 {
                     name: 'pom.xml',
-                    guessRunCommand: (content) => 'java -jar target/app.jar', // Common for Spring Boot
+                    language: 'Java (Maven)',
+                    guessRunCommand: (content) => 'java -jar target/app.jar',
+                    guessPort: (content) => '8080'
+                },
+                {
+                    name: 'build.gradle',
+                    language: 'Java (Gradle)',
+                    guessRunCommand: (content) => 'java -jar build/libs/app.jar',
                     guessPort: (content) => '8080'
                 },
                 {
                     name: 'Gemfile',
-                    guessRunCommand: (content) => 'bundle exec rails server -b 0.0.0.0',
-                    guessPort: (content) => '3000'
+                    language: 'Ruby',
+                    guessRunCommand: (content) => {
+                        if (content.includes('rails')) return 'bundle exec rails server -b 0.0.0.0';
+                        if (content.includes('sinatra')) return 'bundle exec ruby app.rb';
+                        return 'bundle exec rackup -o 0.0.0.0';
+                    },
+                    guessPort: (content) => '3000',
+                    parseVersion: (content) => {
+                        try {
+                            const match = content.match(/ruby\s+["']([^"']+)["']/);
+                            return match ? match[1] : null;
+                        } catch (e) { return null; }
+                    }
+                },
+                {
+                    name: 'Cargo.toml',
+                    language: 'Rust',
+                    guessRunCommand: (content) => `./${repo}`,
+                    guessPort: (content) => '8080',
+                    parseVersion: (content) => {
+                        try {
+                            const match = content.match(/rust-version\s*=\s*["']([^"']+)["']/);
+                            return match ? match[1] : null;
+                        } catch (e) { return null; }
+                    }
+                },
+                {
+                    name: 'composer.json',
+                    language: 'PHP',
+                    guessRunCommand: (content) => {
+                        try {
+                            const pkg = JSON.parse(content);
+                            if (pkg.require?.['laravel/framework']) return 'php artisan serve --host=0.0.0.0';
+                            if (pkg.require?.['symfony/framework-bundle']) return 'symfony server:start';
+                        } catch (e) { console.error('Error parsing composer.json:', e); }
+                        return 'php -S 0.0.0.0:8000 -t public';
+                    },
+                    guessPort: (content) => '8000',
+                    parseVersion: (content) => {
+                        try {
+                            const pkg = JSON.parse(content);
+                            return pkg.require?.php || null;
+                        } catch (e) { return null; }
+                    }
+                },
+                {
+                    name: 'mix.exs',
+                    language: 'Elixir',
+                    guessRunCommand: (content) => {
+                        if (content.includes(':phoenix')) return 'mix phx.server';
+                        return 'mix run --no-halt';
+                    },
+                    guessPort: (content) => '4000',
+                    parseVersion: (content) => {
+                        try {
+                            const match = content.match(/elixir:\s*["']([^"']+)["']/);
+                            return match ? match[1] : null;
+                        } catch (e) { return null; }
+                    }
+                },
+                {
+                    name: 'Dockerfile',
+                    language: 'Docker (existing)',
+                    guessRunCommand: (content) => null,
+                    guessPort: (content) => null,
+                    isExisting: true
                 }
             ];
-
-            const branchesToTry = ['main', 'master'];
-            let foundFile = false;
 
             // Set loading state for fetch button
             const originalFetchBtnHtml = fetchBtn.innerHTML;
@@ -267,34 +383,82 @@
             fetchBtn.disabled = true;
             showMessage(null); // Clear messages
 
+            // First, try to get the default branch dynamically
+            let branchesToTry = ['main', 'master'];
+            try {
+                const repoInfoResponse = await fetch(`https://api.github.com/repos/${repoPath}`);
+                if (repoInfoResponse.ok) {
+                    const repoInfo = await repoInfoResponse.json();
+                    const defaultBranch = repoInfo.default_branch;
+                    // Put default branch first, then add others if not already included
+                    branchesToTry = [defaultBranch, 'main', 'master', 'develop'].filter((v, i, a) => a.indexOf(v) === i);
+                }
+            } catch (error) {
+                console.warn('Could not fetch default branch, using fallback list:', error);
+            }
+
+            let foundFile = false;
+            let detectedLanguage = null;
+            let detectedVersion = null;
+
             for (const fileInfo of filesToTry) {
+                // Check if Dockerfile exists
+                if (fileInfo.isExisting) {
+                    for (const branch of branchesToTry) {
+                        const rawUrl = `https://raw.githubusercontent.com/${repoPath}/${branch}/${fileInfo.name}`;
+                        try {
+                            const response = await fetch(rawUrl);
+                            if (response.ok) {
+                                showMessage(`Note: This repository already has a Dockerfile at the root. You may want to review it instead of generating a new one.`, 'error');
+                                fetchBtn.innerHTML = originalFetchBtnHtml;
+                                fetchBtn.disabled = false;
+                                return;
+                            }
+                        } catch (error) {
+                            // Dockerfile doesn't exist, continue
+                        }
+                    }
+                    continue; // Skip to next file
+                }
+
                 for (const branch of branchesToTry) {
                     const rawUrl = `https://raw.githubusercontent.com/${repoPath}/${branch}/${fileInfo.name}`;
                     try {
                         const response = await fetch(rawUrl);
                         if (response.ok) {
                             const content = await response.text();
-                            
+
                             dependencyInput.value = content;
-                            
+                            detectedLanguage = fileInfo.language;
+
                             if (!runCommandInput.value) {
-                                runCommandInput.value = fileInfo.guessRunCommand(content);
+                                const cmd = fileInfo.guessRunCommand(content);
+                                if (cmd) runCommandInput.value = cmd;
                             }
-                            
+
                             if (!portInput.value && fileInfo.guessPort) {
                                 portInput.value = fileInfo.guessPort(content);
                             }
 
-                            showMessage(`Successfully fetched ${fileInfo.name} from ${branch} branch!`, 'success');
+                            // Parse version if available
+                            if (fileInfo.parseVersion) {
+                                detectedVersion = fileInfo.parseVersion(content);
+                            }
+
+                            let successMsg = `Successfully fetched ${fileInfo.name} from ${branch} branch! Detected: ${detectedLanguage}`;
+                            if (detectedVersion) {
+                                successMsg += ` (version: ${detectedVersion})`;
+                            }
+                            showMessage(successMsg, 'success');
                             foundFile = true;
-                            break; 
+                            break;
                         }
                     } catch (error) {
                         console.warn(`Could not fetch ${rawUrl}:`, error);
                     }
                 }
                 if (foundFile) {
-                    break; 
+                    break;
                 }
             }
 
@@ -303,7 +467,7 @@
             fetchBtn.disabled = false;
 
             if (!foundFile) {
-                showMessage('Could not find a common dependency file (e.g., package.json, requirements.txt) in the main or master branch.', 'error');
+                showMessage('Could not find a common dependency file (e.g., package.json, requirements.txt) in any branch. Try using direct GitHub URL analysis instead.', 'error');
             }
         }
 
@@ -377,11 +541,26 @@ Generate a production-ready, multi-stage Dockerfile based on the following infor
 
                 const generatedDockerfile = await callGeminiApi(userQuery, systemInstruction);
                 const dockerfileContent = extractDockerfile(generatedDockerfile);
-                
+
+                // Validate the generated Dockerfile
+                const validation = validateDockerfile(dockerfileContent);
+
                 outputCode.textContent = dockerfileContent;
                 copyBtn.disabled = false;
-                downloadBtn.disabled = false; // <-- New
-                showMessage('Dockerfile generated successfully!', 'success');
+                downloadBtn.disabled = false;
+
+                // Show success message with validation info
+                let successMsg = `Dockerfile generated successfully! (${validation.lineCount} lines`;
+                if (validation.isMultiStage) {
+                    successMsg += ', multi-stage build';
+                }
+                successMsg += ')';
+
+                if (validation.warnings.length > 0) {
+                    successMsg += '\n\nValidation Notes:\n' + validation.warnings.map(w => `• ${w}`).join('\n');
+                }
+
+                showMessage(successMsg, validation.warnings.length > 0 ? 'error' : 'success');
 
             } catch (error) {
                 console.error('Error generating Dockerfile:', error);
@@ -410,13 +589,40 @@ Generate a production-ready, multi-stage Dockerfile based on the following infor
                     throw new Error(`Failed to fetch repo contents from GitHub API. Status: ${response.status}. Make sure the repository is public.`);
                 }
                 const repoContents = await response.json();
-                
+
                 const fileList = repoContents
                     .filter(item => item.type === 'file' || item.type === 'dir')
                     .map(item => `${item.name}${item.type === 'dir' ? '/' : ''}`);
-                
+
                 if (fileList.length === 0) {
                     throw new Error('Repository root seems to be empty or inaccessible.');
+                }
+
+                // Enhanced: Check common subdirectories for nested projects
+                const commonSubdirs = ['src', 'app', 'server', 'api', 'backend', 'frontend', 'client', 'web', 'packages'];
+                let additionalInfo = '';
+
+                for (const item of repoContents) {
+                    if (item.type === 'dir' && commonSubdirs.includes(item.name.toLowerCase())) {
+                        try {
+                            const subdirResponse = await fetch(item.url);
+                            if (subdirResponse.ok) {
+                                const subdirContents = await subdirResponse.json();
+                                const subdirFiles = subdirContents
+                                    .filter(subItem => subItem.type === 'file')
+                                    .map(subItem => `${item.name}/${subItem.name}`);
+
+                                if (subdirFiles.length > 0) {
+                                    additionalInfo += `\n\nFiles in ${item.name}/ subdirectory:\n${subdirFiles.slice(0, 15).join('\n')}`;
+                                    if (subdirFiles.length > 15) {
+                                        additionalInfo += `\n... and ${subdirFiles.length - 15} more files`;
+                                    }
+                                }
+                            }
+                        } catch (error) {
+                            console.warn(`Could not fetch subdirectory ${item.name}:`, error);
+                        }
+                    }
                 }
                 
                 const userQuery = `
@@ -431,13 +637,17 @@ Generate a production-ready, multi-stage Dockerfile by analyzing the following G
     \`\`\`
     ${fileList.join('\n')}
     \`\`\`
+${additionalInfo ? `
+3.  **Additional Context (subdirectory contents):**
+    \`\`\`${additionalInfo}
+    \`\`\`` : ''}
 
-3.  **User-provided Run Command (if any):**
+${additionalInfo ? '4' : '3'}.  **User-provided Run Command (if any):**
     \`\`\`
     ${runCommand || 'Not specified. Please infer the correct run command.'}
     \`\`\`
 
-4.  **User-provided Port (if any):**
+${additionalInfo ? '5' : '4'}.  **User-provided Port (if any):**
     \`\`\`
     ${exposedPort || 'Not specified. Please infer if possible.'}
     \`\`\`
@@ -454,11 +664,26 @@ Generate a production-ready, multi-stage Dockerfile by analyzing the following G
 
                 const generatedDockerfile = await callGeminiApi(userQuery, systemInstruction);
                 const dockerfileContent = extractDockerfile(generatedDockerfile);
-                
+
+                // Validate the generated Dockerfile
+                const validation = validateDockerfile(dockerfileContent);
+
                 outputCode.textContent = dockerfileContent;
                 copyBtn.disabled = false;
-                downloadBtn.disabled = false; // <-- New
-                showMessage('Dockerfile generated successfully from repo analysis!', 'success');
+                downloadBtn.disabled = false;
+
+                // Show success message with validation info
+                let successMsg = `Dockerfile generated from repo analysis! (${validation.lineCount} lines`;
+                if (validation.isMultiStage) {
+                    successMsg += ', multi-stage build';
+                }
+                successMsg += ')';
+
+                if (validation.warnings.length > 0) {
+                    successMsg += '\n\nValidation Notes:\n' + validation.warnings.map(w => `• ${w}`).join('\n');
+                }
+
+                showMessage(successMsg, validation.warnings.length > 0 ? 'error' : 'success');
 
             } catch (error) {
                 console.error('Error generating Dockerfile from URL:', error);
@@ -543,6 +768,58 @@ Generate a production-ready, multi-stage Dockerfile by analyzing the following G
             }
         }
         
+        function validateDockerfile(dockerfileContent) {
+            const warnings = [];
+            const lines = dockerfileContent.split('\n');
+
+            // Check for FROM instruction
+            const hasFrom = lines.some(line => line.trim().toUpperCase().startsWith('FROM'));
+            if (!hasFrom) {
+                warnings.push('Missing FROM instruction - Dockerfile must start with a base image');
+            }
+
+            // Check for 'latest' tag usage (bad practice)
+            const usesLatest = dockerfileContent.match(/FROM\s+[^\s:]+:latest/i);
+            if (usesLatest) {
+                warnings.push('Warning: Using "latest" tag is not recommended for production. Specify exact versions.');
+            }
+
+            // Check for untagged images
+            const hasUntaggedImage = dockerfileContent.match(/FROM\s+[^\s:]+(?:\s|$)/i);
+            if (hasUntaggedImage && !usesLatest) {
+                warnings.push('Warning: Base image has no tag specified. Consider adding a version tag.');
+            }
+
+            // Check for COPY/ADD without specific paths
+            const hasCopyAll = dockerfileContent.match(/COPY\s+\.\s+/i) || dockerfileContent.match(/ADD\s+\.\s+/i);
+            if (hasCopyAll) {
+                warnings.push('Info: Copying all files (COPY . .) can include unnecessary files. Consider using .dockerignore.');
+            }
+
+            // Check for running as root (missing USER instruction)
+            const hasUser = lines.some(line => line.trim().toUpperCase().startsWith('USER'));
+            if (!hasUser) {
+                warnings.push('Security: No USER instruction found. Consider running as non-root user.');
+            }
+
+            // Check for EXPOSE instruction
+            const hasExpose = lines.some(line => line.trim().toUpperCase().startsWith('EXPOSE'));
+            if (!hasExpose) {
+                warnings.push('Info: No EXPOSE instruction found. Consider documenting the port your app uses.');
+            }
+
+            // Check for multi-stage build
+            const fromCount = lines.filter(line => line.trim().toUpperCase().startsWith('FROM')).length;
+            const isMultiStage = fromCount > 1;
+
+            return {
+                isValid: hasFrom,
+                warnings: warnings,
+                isMultiStage: isMultiStage,
+                lineCount: lines.length
+            };
+        }
+
         function extractDockerfile(rawText) {
             const match = rawText.match(/^(```dockerfile\n)([\s\S]*?)(\n```)$/im);
             if (match && match[2]) {
@@ -559,15 +836,40 @@ Generate a production-ready, multi-stage Dockerfile by analyzing the following G
             return rawText;
         }
 
+        function downloadDockerfile() {
+            const textToDownload = outputCode.textContent;
+
+            // Create a Blob with the Dockerfile content
+            const blob = new Blob([textToDownload], { type: 'text/plain' });
+
+            // Create a temporary URL for the blob
+            const url = URL.createObjectURL(blob);
+
+            // Create a temporary anchor element to trigger download
+            const downloadLink = document.createElement('a');
+            downloadLink.href = url;
+            downloadLink.download = 'Dockerfile'; // No extension for Dockerfile
+
+            // Trigger the download
+            document.body.appendChild(downloadLink);
+            downloadLink.click();
+
+            // Cleanup
+            document.body.removeChild(downloadLink);
+            URL.revokeObjectURL(url);
+
+            showMessage('Dockerfile downloaded successfully!', 'success');
+        }
+
         function copyToClipboard() {
             const textToCopy = outputCode.textContent;
-            
+
             // Use legacy method for iframe compatibility
             const tempTextArea = document.createElement('textarea');
             tempTextArea.value = textToCopy;
             document.body.appendChild(tempTextArea);
             tempTextArea.select();
-            
+
             try {
                 document.execCommand('copy');
                 showMessage('Copied to clipboard!', 'success');
@@ -575,7 +877,7 @@ Generate a production-ready, multi-stage Dockerfile by analyzing the following G
                 console.error('Failed to copy text: ', err);
                 showMessage('Failed to copy to clipboard.', 'error');
             }
-            
+
             document.body.removeChild(tempTextArea);
         }
 
@@ -584,14 +886,23 @@ Generate a production-ready, multi-stage Dockerfile by analyzing the following G
                 messageBox.classList.add('hidden');
                 return;
             }
-            
+
             messageBox.classList.remove('hidden');
-            messageBox.textContent = message;
-            
+
+            // Handle multi-line messages
+            if (message.includes('\n')) {
+                messageBox.innerHTML = message.split('\n').map(line => {
+                    if (!line.trim()) return '<br>';
+                    return `<div>${line}</div>`;
+                }).join('');
+            } else {
+                messageBox.textContent = message;
+            }
+
             if (type === 'success') {
-                messageBox.className = 'p-4 mb-4 text-sm text-green-300 bg-green-900 rounded-lg';
+                messageBox.className = 'p-4 m-4 rounded-lg message-success whitespace-pre-wrap';
             } else if (type === 'error') {
-                messageBox.className = 'p-4 mb-4 text-sm text-red-300 bg-red-900 rounded-lg';
+                messageBox.className = 'p-4 m-4 rounded-lg message-error whitespace-pre-wrap';
             }
         }
 

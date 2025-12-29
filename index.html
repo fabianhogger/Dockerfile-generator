@@ -467,7 +467,184 @@
             fetchBtn.disabled = false;
 
             if (!foundFile) {
-                showMessage('Could not find a common dependency file (e.g., package.json, requirements.txt) in any branch. Try using direct GitHub URL analysis instead.', 'error');
+                // Try to generate dependency file from source code analysis
+                showMessage('No dependency file found. Attempting to generate one by analyzing source code...', 'error');
+                await generateDependencyFile(repoPath, branchesToTry);
+            }
+        }
+
+        async function generateDependencyFile(repoPath, branchesToTry) {
+            const apiKey = apiKeyInput.value;
+            if (!apiKey) {
+                showMessage('Cannot generate dependency file: API Key required. Please enter your Google AI API Key.', 'error');
+                return;
+            }
+
+            try {
+                showMessage('Analyzing repository source code to generate dependency file...', 'error');
+
+                // Language detection patterns
+                const languagePatterns = [
+                    { extensions: ['.py'], language: 'Python', dependencyFile: 'requirements.txt' },
+                    { extensions: ['.js', '.jsx', '.ts', '.tsx'], language: 'Node.js', dependencyFile: 'package.json' },
+                    { extensions: ['.go'], language: 'Go', dependencyFile: 'go.mod' },
+                    { extensions: ['.rb'], language: 'Ruby', dependencyFile: 'Gemfile' },
+                    { extensions: ['.php'], language: 'PHP', dependencyFile: 'composer.json' },
+                    { extensions: ['.rs'], language: 'Rust', dependencyFile: 'Cargo.toml' },
+                    { extensions: ['.ex', '.exs'], language: 'Elixir', dependencyFile: 'mix.exs' }
+                ];
+
+                let detectedLanguage = null;
+                let sourceFiles = [];
+                let activeBranch = branchesToTry[0];
+
+                // Fetch repository contents to find source files
+                for (const branch of branchesToTry) {
+                    try {
+                        const repoApiUrl = `https://api.github.com/repos/${repoPath}/contents/`;
+                        const response = await fetch(repoApiUrl + `?ref=${branch}`);
+                        if (!response.ok) continue;
+
+                        const contents = await response.json();
+                        activeBranch = branch;
+
+                        // Collect source files
+                        for (const item of contents) {
+                            if (item.type === 'file') {
+                                for (const pattern of languagePatterns) {
+                                    if (pattern.extensions.some(ext => item.name.endsWith(ext))) {
+                                        sourceFiles.push({
+                                            name: item.name,
+                                            download_url: item.download_url,
+                                            language: pattern.language,
+                                            dependencyFile: pattern.dependencyFile
+                                        });
+                                        if (!detectedLanguage) {
+                                            detectedLanguage = pattern.language;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        if (sourceFiles.length > 0) break;
+                    } catch (error) {
+                        console.warn(`Could not fetch contents from ${branch}:`, error);
+                    }
+                }
+
+                if (sourceFiles.length === 0) {
+                    showMessage('Could not find source code files to analyze. Please try manual input or direct GitHub URL analysis.', 'error');
+                    return;
+                }
+
+                // Fetch content of source files (limit to first 10 files to avoid API limits)
+                const filesToAnalyze = sourceFiles.slice(0, 10);
+                const fileContents = [];
+
+                for (const file of filesToAnalyze) {
+                    try {
+                        const response = await fetch(file.download_url);
+                        if (response.ok) {
+                            const content = await response.text();
+                            fileContents.push({
+                                name: file.name,
+                                content: content.substring(0, 5000) // Limit to first 5000 chars per file
+                            });
+                        }
+                    } catch (error) {
+                        console.warn(`Could not fetch ${file.name}:`, error);
+                    }
+                }
+
+                if (fileContents.length === 0) {
+                    showMessage('Could not fetch source file contents. Please try manual input.', 'error');
+                    return;
+                }
+
+                // Use AI to generate dependency file
+                const userQuery = `
+Analyze the following ${detectedLanguage} source code files and generate a comprehensive ${sourceFiles[0].dependencyFile} file with all required dependencies.
+
+**Repository:** https://github.com/${repoPath}
+**Detected Language:** ${detectedLanguage}
+**Target File:** ${sourceFiles[0].dependencyFile}
+
+**Source Files:**
+${fileContents.map(f => `
+--- ${f.name} ---
+${f.content}
+`).join('\n')}
+
+Please analyze all imports, dependencies, and libraries used in these files and generate a complete ${sourceFiles[0].dependencyFile} with appropriate version specifications.
+`;
+
+                const systemInstruction = `You are an expert software engineer specializing in dependency management. Your task is to analyze source code and generate accurate dependency files.
+
+For Python (requirements.txt):
+- List all imported packages with reasonable version constraints
+- Use >= for minimum versions, or ~= for compatible releases
+- Include common dependencies for detected frameworks (flask, django, fastapi, etc.)
+- Add comments for system dependencies if needed (e.g., ffmpeg for pydub)
+
+For Node.js (package.json):
+- Create a valid JSON package.json with name, version, dependencies
+- Detect framework (React, Next.js, Express, etc.) and include appropriate deps
+- Use ^ for semver ranges
+- Include devDependencies if build tools are detected
+
+For other languages:
+- Follow language-specific conventions
+- Include necessary version constraints
+- Add helpful comments where appropriate
+
+**IMPORTANT:** Respond ONLY with the dependency file content. No explanations, no markdown code blocks, just the raw file content.`;
+
+                const generatedDependencyFile = await callGeminiApi(userQuery, systemInstruction);
+
+                // Clean up the response (remove markdown if present)
+                let cleanedContent = generatedDependencyFile.trim();
+                const markdownMatch = cleanedContent.match(/```(?:json|toml|ruby|text|txt)?\n([\s\S]*?)\n```/);
+                if (markdownMatch) {
+                    cleanedContent = markdownMatch[1].trim();
+                }
+
+                // Populate the dependency input
+                dependencyInput.value = cleanedContent;
+
+                // Try to set default run command based on detected language
+                if (!runCommandInput.value) {
+                    const defaultCommands = {
+                        'Python': 'python app.py',
+                        'Node.js': 'npm start',
+                        'Go': './main',
+                        'Ruby': 'bundle exec ruby app.rb',
+                        'PHP': 'php -S 0.0.0.0:8000',
+                        'Rust': './app',
+                        'Elixir': 'mix run --no-halt'
+                    };
+                    runCommandInput.value = defaultCommands[detectedLanguage] || '';
+                }
+
+                // Set default port if not set
+                if (!portInput.value) {
+                    const defaultPorts = {
+                        'Python': '8000',
+                        'Node.js': '3000',
+                        'Go': '8080',
+                        'Ruby': '3000',
+                        'PHP': '8000',
+                        'Rust': '8080',
+                        'Elixir': '4000'
+                    };
+                    portInput.value = defaultPorts[detectedLanguage] || '8080';
+                }
+
+                showMessage(`Successfully generated ${sourceFiles[0].dependencyFile} by analyzing ${fileContents.length} source files! Detected: ${detectedLanguage}. Review and adjust if needed, then click Generate Dockerfile.`, 'success');
+
+            } catch (error) {
+                console.error('Error generating dependency file:', error);
+                showMessage(`Failed to generate dependency file: ${error.message}`, 'error');
             }
         }
 

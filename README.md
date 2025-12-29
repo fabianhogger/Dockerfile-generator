@@ -22,6 +22,7 @@ Automatically detects and generates optimized Dockerfiles for:
 
 ### 🔍 Intelligent Detection
 
+- **AI-Powered Dependency Generation** 🌟 **NEW!** - Automatically generates dependency files (requirements.txt, package.json, etc.) by analyzing source code when none exist
 - **Dynamic Branch Discovery** - Automatically detects your repository's default branch (no longer limited to main/master)
 - **Version Parsing** - Extracts and uses correct language versions from dependency files
 - **Framework-Specific Intelligence**:
@@ -69,11 +70,13 @@ Every generated Dockerfile is automatically validated with comprehensive checks:
 
 ## 🚀 Quick Start
 
-### Option 1: Use GitHub URL
+### Option 1: Use GitHub URL (Recommended)
 
 1. Enter your GitHub repository URL (e.g., `https://github.com/user/repo`)
 2. Click **"Fetch Details"** to auto-detect language and dependencies
-3. Review the auto-filled run command and port
+   - ✅ If a dependency file exists (package.json, requirements.txt, etc.), it will be fetched automatically
+   - 🌟 **NEW:** If no dependency file exists, AI will analyze your source code and generate one!
+3. Review the auto-filled dependency file, run command, and port
 4. Click **"Generate Dockerfile"**
 5. Copy or download your production-ready Dockerfile!
 
@@ -133,7 +136,45 @@ Optimized Dockerfile with:
 - Non-root user
 - Health endpoint exposure
 
-### Example 3: Rust Application
+### Example 3: Python ML Project Without requirements.txt 🌟 NEW!
+
+**Input:**
+```
+GitHub URL: https://github.com/fabianhogger/sound_classification
+```
+
+**Detection Process:**
+```
+⚠️ No dependency file found. Attempting to generate one by analyzing source code...
+✓ Analyzing repository source code...
+✓ Detected: Python
+✓ Found source files: make_prediction.py, model.py, trial.py
+✓ AI analyzing imports: pickle, pydub, keras, librosa, numpy, pandas...
+✓ Generated requirements.txt with all dependencies!
+```
+
+**Generated requirements.txt:**
+```
+tensorflow>=2.10.0,<2.16.0
+pydub>=0.25.1
+librosa>=0.10.0
+soundfile>=0.12.1
+numpy>=1.23.0,<2.0.0
+pandas>=1.5.0
+audioread>=3.0.0
+resampy>=0.4.2
+# Note: pydub requires ffmpeg system dependency
+```
+
+**Output:**
+Optimized Dockerfile with:
+- `python:3.11-slim` base image
+- All ML dependencies installed
+- System dependencies (ffmpeg) included
+- Non-root user for security
+- Production-ready configuration
+
+### Example 4: Rust Application
 
 **Input:**
 ```
@@ -160,20 +201,30 @@ Multi-stage Dockerfile with:
    - Fetches repository structure via GitHub API
    - Scans root directory and common subdirectories
    - Identifies dependency files and project structure
+   - 🌟 **NEW:** If no dependency file exists, analyzes source code files
 
-### 2. **Intelligent Inference**
-   - Analyzes dependency file contents
+### 2. **Smart Dependency Detection** 🌟 **NEW!**
+   - **If dependency file exists:** Fetches and parses it directly
+   - **If dependency file missing:**
+     - Detects language from source file extensions (.py, .js, .go, etc.)
+     - Fetches up to 10 source files from repository
+     - Uses AI to analyze imports and dependencies
+     - Generates appropriate dependency file (requirements.txt, package.json, etc.)
+     - Includes version constraints and framework-specific dependencies
+
+### 3. **Intelligent Inference**
+   - Analyzes dependency file contents (generated or existing)
    - Detects frameworks and their specific requirements
    - Parses version constraints
    - Determines optimal build and run commands
 
-### 3. **AI Generation**
+### 4. **AI Dockerfile Generation**
    - Uses Google Gemini AI with expert DevOps prompts
    - Generates production-ready, multi-stage Dockerfiles
    - Follows security best practices
    - Includes helpful comments explaining decisions
 
-### 4. **Validation & Feedback**
+### 5. **Validation & Feedback**
    - Runs comprehensive validation checks
    - Provides actionable warnings and suggestions
    - Shows build type (single vs multi-stage)

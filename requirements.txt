@@ -1,0 +1,22 @@
+# Requirements for sound_classification project
+# https://github.com/fabianhogger/sound_classification
+
+# Deep Learning Framework
+# Keras is now part of TensorFlow 2.x
+tensorflow>=2.10.0,<2.16.0
+
+# Audio Processing
+pydub>=0.25.1
+librosa>=0.10.0
+soundfile>=0.12.1  # Required by librosa for audio I/O
+
+# Data Processing
+numpy>=1.23.0,<2.0.0
+pandas>=1.5.0
+
+# Additional dependencies for audio processing
+audioread>=3.0.0  # Alternative audio backend for librosa
+resampy>=0.4.2    # Audio resampling (used by librosa)
+
+# Note: pydub may require ffmpeg to be installed system-wide
+# Install with: apt-get install ffmpeg (Linux) or brew install ffmpeg (macOS)
